@@ -1,0 +1,205 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(FSA)
+```
+
+<font size="6" color="red">Kruskal-Wallace test for a categorical and continous variable.</font>
+
+<font size="3" >The Kruskal–Wallis test is a non-parametric method that does not assume normalality, unlike the analogous one-way analysis of variance. It is assumed that the distribution of the population should not be necessarily normal and the variances should not be necessarily equal. The test can be implemented in R using the kruskal.test(x,g) function. The x parameter is a continuous (interval/ratio) variable. The g parameter is the categorical variable representing different groups to which the continuous values belong.The test does not identify where this stochastic dominance occurs or for how many pairs of groups stochastic dominance obtains. Since ANOVA assumes normal distribution let us use Kriskal-Eallis test. Even if we use ANOVA we get similar results.
+
+The null hypothesis with a Kruskal-Wallace test is that all the different groups represented by the samples are very similar based on the median value.
+</font>
+
+```{r}
+df=read.csv("Marketing-Customer-Value-Analysis.csv")
+df1 = subset(df, select = -c(Customer,Effective.To.Date) )
+cat_var=sapply(df1,is.character)
+data_matrix <- data.matrix(df1[cat_var])
+colnames(data_matrix)
+```
+<br>
+
+<br>
+<font size="3" color="blue">State</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$State))
+
+aggregate(df$Customer.Lifetime.Value ~ df$State, data = data.frame(df$Customer.Lifetime.Value,df$State), FUN=mean, na.rm=T)
+```
+There is 28% chance that the means are same.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers from different States.Thus State variable can be avoided in our model.
+
+<br>
+
+<br>
+<font size="3" color="blue">Response</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Response))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Response, data = data.frame(df$Customer.Lifetime.Value,df$Response), FUN=mean, na.rm=T)
+```
+There is 51% chance that the means are same.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on their response to marketting calls.Thus Response variable can be avoided in our model.
+
+<br>
+
+<br>
+<font size="3" color="blue">Coverage</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Coverage))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Coverage, data = data.frame(df$Customer.Lifetime.Value,df$Coverage), FUN=mean, na.rm=T)
+```
+The p value here is << 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV among the customers with different policy coverages.Thus Coverage variable could be useful.
+
+<br>
+
+<br>
+<font size="3" color="blue">Education</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Education))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Education, data = data.frame(df$Customer.Lifetime.Value,df$Education), FUN=mean, na.rm=T)
+```
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV among the customers with different Education levels.Thus Education of customers can be useful in predicting CLV.
+
+<br>
+
+<br>
+<font size="3" color="blue">EmploymentStatus</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$EmploymentStatus))
+
+aggregate(df$Customer.Lifetime.Value ~ df$EmploymentStatus, data = data.frame(df$Customer.Lifetime.Value,df$EmploymentStatus), FUN=mean, na.rm=T)
+```
+
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV among the customers with different Employment status.Thus Employment status of customers can be useful in predicting CLV.
+
+<br>
+
+<br>
+<font size="3" color="blue">Gender</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Gender))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Gender, data = data.frame(df$Customer.Lifetime.Value,df$Gender), FUN=mean, na.rm=T)
+```
+The p value is > 0.05.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on Gender.Thus Gender can be avoided in our model.
+<br>
+
+<br>
+<font size="3" color="blue">Location code</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Location.Code))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Location.Code, data = data.frame(df$Customer.Lifetime.Value,df$Location.Code), FUN=mean, na.rm=T)
+```
+The p value is > 0.05.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on their Location code.Thus Location Code can be avoided in our model.
+<br>
+
+<br>
+<font size="3" color="blue">Marital Status</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Marital.Status))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Marital.Status, data = data.frame(df$Customer.Lifetime.Value,df$Marital.Status), FUN=mean, na.rm=T)
+```
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV based on the Marital Status.Thus Marital Status can be useful in predicting CLV.
+<br>
+
+<br>
+<font size="3" color="blue">Policy Type</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Policy.Type))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Policy.Type, data = data.frame(df$Customer.Lifetime.Value,df$Policy.Type), FUN=mean, na.rm=T)
+```
+The p value is > 0.05.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on the Policy Type.Thus Policy Type can be avoided in our model.
+<br>
+
+<br>
+<font size="3" color="blue">Policy</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Policy))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Policy, data = data.frame(df$Customer.Lifetime.Value,df$Policy), FUN=mean, na.rm=T)
+```
+The p value is > 0.05.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on the Policy.Thus Policy can be avoided in our model.
+
+<br>
+
+<br>
+<font size="3" color="blue">Renew.Offer.Type</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Renew.Offer.Type))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Renew.Offer.Type, data = data.frame(df$Customer.Lifetime.Value,df$Renew.Offer.Type), FUN=mean, na.rm=T)
+```
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV based on the Renew offer type.Thus Renew offer type can be useful in predicting CLV.
+<br>
+
+<br>
+<font size="3" color="blue">Sales.Channel</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Sales.Channel))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Sales.Channel, data = data.frame(df$Customer.Lifetime.Value,df$Sales.Channel), FUN=mean, na.rm=T)
+```
+The p value is > 0.05.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers based on the Sales channel.Thus Sales channel can be avoided in our model.
+<br>
+
+<br>
+<font size="3" color="blue">Vehicle.Class</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Vehicle.Class))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Vehicle.Class, data = data.frame(df$Customer.Lifetime.Value,df$Vehicle.Class), FUN=mean, na.rm=T)
+```
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV based on the vehicle class the customers own.Thus Vehicle class of customers can be useful in predicting CLV.
+
+<br>
+
+<br>
+<font size="3" color="blue">Vehicle.Size</font>
+
+```{r}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Vehicle.Size))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Vehicle.Size, data = data.frame(df$Customer.Lifetime.Value,df$Vehicle.Size), FUN=mean, na.rm=T)
+```
+
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV based on the vehicles sizes.Thus Vehicle Sizes of customers can be useful in predicting CLV.
+
+<br>
+
+<br>
+<font size="4" color="black">Therefore based on Kruskal Wallace test, the categorical variables that would help in predicting the CLV are:</font>
+
+* Vehicle.Size
+* Vehicle.Class
+* Renew.Offer.Type
+* Marital.Status
+* Coverage
+* Education
+* EmploymentStatus
+
+
+
