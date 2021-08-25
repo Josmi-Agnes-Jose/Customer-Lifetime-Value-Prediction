@@ -1,0 +1,1566 @@
+---
+title: "Report"
+author: "Team1"
+date: "31/07/2021"
+output: html_document
+---
+<font size="4">
+```{r include=FALSE}
+#library(DMwR)lb
+library(caTools)
+library(lubridate)
+require(scales)
+library(ggplot2)
+library(reshape2)
+library(funModeling) 
+library(tidyverse) 
+library(Hmisc)
+library(repr)
+library(dlookr)
+library(lattice)
+library(corrplot)
+library(ggcorrplot)
+library(naniar)
+library(skimr)
+library(rlang)
+library(MASS)
+library(FSA)
+library(gridExtra)
+library(plotly)
+
+library(tidyverse) 
+library(car) 
+library(zoo)
+library(lmtest) 
+library(dplyr) 
+library(stringr)
+library(caret)
+library(timeDate)
+library(caTools)
+library(psych)
+library(superml)
+library(Rcpp)
+library(glmnet)
+
+    
+library(xgboost)    
+library(e1071)      
+library(cowplot)    
+library(Matrix)
+library(magrittr)
+library(Metrics)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+***
+<font size="5" color="blue"> Content </font>
+
+<font size="4" >
+
+1. Introduction.
+2. Problem Statement and Dataset.
+3. Data Preprocessing and Cleaning.
+4. Exploratory Data Analysis.
+5. Base model with all variables.
+6. Kruskal - Wallis test on categorical variables.
+7. Feature Selection and Feature Engineering.
+8. Modelling :
+    
+    * Step Wise Regression
+    * Lasso Regression
+    * Polynomial Regression
+    * XgBoost
+    * Final model
+9.  Testing assumptions in Linear Regression for final model.
+10. Suggestions for additional data
+11. Business Solution
+12. References.
+13. Approach.
+
+***
+<br>
+<font size="6" color="#700000"><div align="center">Customer Lifetime Value Analysis </div></font>
+<font size="4">CLV is a measurement of how valuable a customer is to your company with an unlimited time span as opposed to just the first purchase. This metric helps you understand a reasonable cost per acquisition.
+
+CLV is the total worth to a business of a customer over the whole period of their relationship. It’s an important metric as it costs less to keep existing customers than it does to acquire new ones, so increasing the value of your existing customers is a great way to drive growth.
+
+
+CLV helps the organization in :
+</font>
+<font size="4">
+
+* management of customer relationship as an asset
+* monitoring the impact of management strategies and marketing investments on the value of customer assets
+* encourages marketers to focus on the long-term value of customers 
+* optimal allocation of limited resources for ongoing marketing activities in order to achieve a maximum return
+* a good basis for selecting customers and for decision making regarding customer specific communication strategies 
+</font>
+
+***
+***
+```{r include=FALSE}
+df=read.csv("Marketing-Customer-Value-Analysis.csv")
+```
+<br>
+<font size="6" color="#700000"><div align="center">Problem Statement and Dataset </div></font>
+<font size="4">
+
+The task is to understand the problem of Customer Lifetime Value and provide a data-driven solution through data methodologies.To understand customer behaviour and to find out the profitable customers.To predict the lifetime valuation of a customer to facilitate target marketing
+
+The dataset delineates the demographics and policy specifics purchased by the customers from a bank/firm. Customer Lifetime Valuation (Customer.Lifetime.Value) is the target variable that is predicted.A preview of the dataset is :
+</font>
+<br>
+
+<br>
+
+```{r echo=FALSE}
+head(df,4)
+```
+<br>
+<font size="4">
+The variables available in the dataset are :
+```{r echo=FALSE}
+colnames(df)
+```
+The dimension of the dataset is (`r dim(df)`) .
+
+There are 15 categorical variables out of which one is the customer id, 8 numerical variables (including target variable) and one date.
+The structure of these variables can be inferred here :
+
+
+```{r echo =FALSE}
+str(df)
+```
+<br>
+
+The summary statistics of the numerical variables are :
+
+```{r echo =FALSE, warning=FALSE}
+print(data.frame(describe(df)))
+```
+</font>
+
+***
+***
+<br>
+<font size="6" color="#700000"><div align="center">Data Preprocessing and Cleaning.</div></font>
+
+<font size="4">
+There are no missing values in our dataset. This can be inferred from the following graph :
+```{r echo=FALSE, warning=FALSE , message=FALSE}
+# missing
+gg_miss_var(df)
+
+```
+
+The *Effective.To.Date* column contains two different date formats : "1/20/11" and "02-03-2011". We have cleaned this and converted them into a unique format which is : "2011-02-21".
+
+```{r include=FALSE}
+mdy <- mdy(df$Effective.To.Date) 
+dmy <- dmy(df$Effective.To.Date) 
+mdy[is.na(mdy)] <- dmy[is.na(mdy)]  
+df$Effective.To.Date <- mdy  
+
+```
+</font>
+
+***
+***
+<br>
+<font size="6" color="#700000"><div align="center">Exploratory Data Analysis.</div></font>
+
+
+Questions asked before approaching EDA: 
+
+1. What is the distribution of the target variable? 
+2. Does the target variable contain outliers? 
+3. How is the target variable associated with categorical features(State,Response,Coverage,Education,EmploymentStatus,Gender,LocationCode,Saleschannel,Marital Status,Policy Type,
+Policy,Renew Offer Type,Sales Channel,Vehicle Class,Vehicle Size) of the dataset?
+4. How is the target variable associated with Numerical features(Income,Monthly Premium Auto,Months Since Last Claim,Months Since Policy Inception,Number of Open Complaints,Number of Policies,Total Claim Amount) of the dataset? 
+5. Are the numerical variables correlated? If yes, to what extent? 
+6. What are the most important features of the dataset and how do they affect the target variable? 
+7. Is gender an essential feature for increase in CLV? 
+8. Is marital status an essential feature for increase in CLV? 
+9. How are customers with different policy types affecting the target variable? 
+10. What sales channels have a greater impact on CLV? 
+11. What are the types of customers the company must target based on the EDA? 
+
+
+
+<br>
+
+<br>
+```{r  echo=FALSE ,fig.height = 6, fig.width = 8, warning=FALSE}
+ggplot(df,aes(x=df$Customer.Lifetime.Value))+
+    geom_histogram(aes(y=..density..),fill="#1BF7D7",col="black",binwidth = 2000)+
+    labs(x=df$Customer.Lifetime.Value)+
+    ggtitle("Frequency distribution of CLV")+
+    geom_density(alpha=.2,fill="black")+
+    xlab("CLV")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=20, face="bold"),
+          axis.title.y = element_text(color="black", size=20,face="bold")
+    )+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+```
+
+The above graph shows that the target variable, Customer Lifetime value has a positively skewed distribution. 
+<br>
+
+<br>
+```{r  fig.height = 6, fig.width = 8, echo=FALSE ,warning=FALSE}
+ggplot(df, aes(x=df$Customer.Lifetime.Value)) + 
+    ggtitle("Boxplot of CLV")+
+    geom_boxplot(fill="#1BF7D7",col="black")+
+    xlab("CLV")+
+    theme(text=element_text(size=20))+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+```
+
+The boxplot of the target variable shows there are quite a few extreme values to the right which may also be observed in real life cases. This can be adjusted through some transformations, like log transformations. 
+<br>
+
+<br>
+```{r fig2, fig.height = 6, fig.width = 10,echo=FALSE ,warning=FALSE}
+ggplot(data=df,aes(x=df$Customer.Lifetime.Value,fill=Education))+
+    geom_boxplot()+labs(x=df$Customer.Lifetime.Value)+
+    ggtitle("CLV based on Education of customers")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=20),
+          axis.title.y = element_text(color="black", size=20))+
+    xlab("CLV")+
+    coord_flip()+
+    scale_fill_manual(values = c("#0A8F84","#0FB6A9","#63CAC2", "#17E7D6","#46FAEB" ))+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+
+```
+
+
+We can infer that the distribution of CLV for customers with education level below highschool and Masters are more significant than the other customers. But this plot also shows that education does not affect the target variable to a great extend.
+<br>
+
+
+<br>
+```{r fig4, fig.height = 6, fig.width = 10,echo=FALSE ,warning=FALSE}
+ggplot(data=df,aes(x=df$Customer.Lifetime.Value,fill=Coverage))+
+    geom_boxplot()+labs(x=df$Customer.Lifetime.Value)+
+    ggtitle("CLV based on policy coverage")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=20),
+          axis.title.y = element_text(color="black", size=20))+
+    xlab("CLV")+
+    coord_flip()+
+    scale_fill_manual(values = c("#0A8F84","#63CAC2","#46FAEB" ))+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+
+```
+
+<br>
+
+```{r figc, fig.height = 6, fig.width = 10, warning=FALSE, message=FALSE,echo=FALSE}
+
+ggplot(df,aes(x=Customer.Lifetime.Value, fill=Coverage))+
+    geom_density(color="#e9ecef", alpha=0.6, position = 'identity')+
+    scale_fill_manual(values=c("#6F0D78", "#423EC3","#48ECDB"))+
+    ggtitle("Customer Lifetime Value plot for different policy coverages")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=15),
+          axis.title.y = element_text(color="black", size=15),
+          plot.title = element_text(hjust = 0.5,size=20))+
+    theme(legend.position ="bottom")+
+    theme(legend.title = element_text(size = 17))+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+```
+
+The above 2 plots suggests that the customers who opted for Premium and Extended policy coverages are more valuable to the company when compared to those customers with Basic policy coverage.
+<br>
+
+<br>
+```{r fig5, fig.height = 6, fig.width = 10,echo=FALSE ,warning=FALSE}
+ggplot(data=df,aes(x=df$Customer.Lifetime.Value,fill=State))+
+    geom_boxplot()+labs(x=df$Customer.Lifetime.Value)+
+    ggtitle("CLV based on state of customers")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=20),
+          axis.title.y = element_text(color="black", size=20))+
+    xlab("CLV")+
+    coord_flip()+
+    scale_fill_manual(values = c("#0A8F84","#0FB6A9","#63CAC2", "#17E7D6","#46FAEB"))+
+    theme(plot.title = element_text(hjust = 0.5,size=20))
+
+```
+
+This plot shows the distribution of CLV for the customers based on the states they belong. We can see that the distributions are more or less similar. This points out that the state from which the customers come are not a valuable feature for determining their importance to the company.
+
+<br>
+
+ 
+<br>
+```{r fig9b, fig.height = 6, fig.width = 10, warning=FALSE, message=FALSE,echo=FALSE}
+ggplot(df,aes(x=Customer.Lifetime.Value, fill=Response))+
+    geom_density(color="#e9ecef", alpha=0.6, position = 'identity')+
+    ggtitle("Customer Lifetime Value plot based on Response")+
+    theme(text=element_text(size=20),
+          axis.title.x = element_text(color="black", size=15),
+          axis.title.y = element_text(color="black", size=15),
+          plot.title = element_text(hjust = 0.5,size=20))+
+    theme(legend.position ="bottom")+
+    theme(legend.title = element_text(size = 17))
+```
+
+The above frequency distribution plot suggests that the target variable, CLV has more or less similar distribution irrespective of whether the response from the customers to marketting calls is positive or not.
+<br>
+
+
+<br>
+<font size="5" ><div align="center">Correlation between numerical variables.</font></div>
+```{r fig9, fig.height = 8, fig.width = 8, echo=FALSE ,warning=FALSE}
+num_var=sapply(df,is.numeric)
+data_matrix <- data.matrix(df[num_var])
+cormat <- round(cor(data_matrix),2)
+melted_cormat <- melt(cormat)
+get_lower_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)}
+get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+    }
+upper_tri <- get_upper_tri(cormat)
+reorder_cormat <- function(cormat){
+    dd <- as.dist((1-cormat)/2)
+    hc <- hclust(dd)
+    cormat <-cormat[hc$order, hc$order]}
+    # Reorder the correlation matrix
+cormat <- reorder_cormat(cormat)
+upper_tri <- get_upper_tri(cormat)
+    # Melt the correlation matrix
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+    geom_tile(color = "white")+
+    scale_fill_gradient2(low = "#32305e", high = "#6f388c", mid = "#c5c5eb",
+                         midpoint = 0, limit = c(-1,1), space = "Lab",
+                         name="Pearson\nCorrelation") +
+    theme_minimal()+ # minimal theme
+    theme(axis.title.y = element_text(size=10))+
+    theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 17, hjust = 1))+
+    coord_fixed()
+ggheatmap +geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+        theme(
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank(),
+            text=element_text(size=21),
+            panel.grid.major = element_blank(),
+            panel.border = element_blank(),
+            panel.background = element_blank(),
+            axis.ticks = element_blank(),
+            # legend.position = c(.25, .95),
+            legend.position = "none")+
+          #   legend.justification = c("left", "top"),
+          #   legend.box.just = "right",
+          #   legend.margin = margin(6, 6, 6, 6),
+          # legend.direction = "horizontal")+
+        guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                                     title.position = "top", title.hjust = 0.5))+theme(plot.margin=unit(c(1,1,1.5,0.5),"cm"))
+```
+
+The above plot shows the correlation between numerical features of the data set. The "0" suggests that there is no correlation between Total claim amount with the variables : Income, Number of policies and Number of open complaints. We can also see that none of the pairs of variables have high correlation with the target variable and also between themselves.
+
+<br>
+</font>
+<font size="5" ><div align="center">Plotting of Categorical Variables To check Income of each catagories.</div></font> 
+
+<br>
+
+<br>
+```{r echo=FALSE}
+
+b1 <- ggplot(df, aes(x=Income, y=Gender)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Income and Gender ")
+b2 <- ggplot(df, aes(x=Income, y=Marital.Status)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Income and MartialStatus")
+b3 <- ggplot(df, aes(x=Income, y=EmploymentStatus)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Income and Employed")
+b4 <- ggplot(df, aes(x=Income, y=Location.Code)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Income and Residence place")
+grid.arrange(b1,b2,b3,b4,ncol=2)
+```
+
+
+
+The above plots show that we do not see much difference in income for the Gender.
+We see that married and divorced customers have a greater income when compared to single customers. 
+We can also see that employed customer have a higher income compared to other employees statuses.
+The last plot suggest that customers living in Urban and Rural residential areas have a greater income compared to suburban. 
+
+<br>
+
+
+<br>
+<font size="5" ><div align="center">Plotting of Categorical Variables To check Education status for each categories. </font></div>
+
+<br>
+
+<br>
+```{r echo=FALSE}
+
+Gender_tb <- with(df, table(Gender, Education))
+Gender_tb <- ggplot(as.data.frame(Gender_tb), aes(factor(Gender),Freq, fill=Education) )+ geom_col(position = 'dodge')
+fig <- ggplotly(Gender_tb)
+EmploymentStatus_tb <- with(df, table(EmploymentStatus, Education))
+EmploymentStatus_tb <- ggplot(as.data.frame(EmploymentStatus_tb), aes(factor(EmploymentStatus),Freq, fill=Education) )+ geom_col(position = 'dodge') 
+fig1 <- ggplotly(EmploymentStatus_tb)
+MaritalStatus_tb <- with(df, table(Marital.Status, Education))
+MaritalStatus_tb <- ggplot(as.data.frame(MaritalStatus_tb), aes(factor(Marital.Status),Freq, fill=Education) )+ geom_col(position = 'dodge') 
+fig2 <- ggplotly(MaritalStatus_tb)
+LocationCode_tb <- with(df, table(Location.Code, Education))
+LocationCode_tb <- ggplot(as.data.frame(LocationCode_tb), aes(factor(Location.Code),Freq, fill=Education) )+ geom_col(position = 'dodge') 
+fig3 <- ggplotly(LocationCode_tb)
+grid.arrange(Gender_tb,EmploymentStatus_tb,MaritalStatus_tb,LocationCode_tb,ncol=1)
+
+```
+
+The above plots shows the basic educations of customers based on their Gender(male,female), Employment status ,Marital status  and location code.  
+
+<br>
+
+<br>
+
+<font size="5" ><div align="center">No of policies by each categories.</font></div>
+
+<br>
+
+<br>
+```{r echo=FALSE}
+
+b1 <- ggplot(df, aes(x=Number.of.Policies, y=Gender)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Policies and Gender ")
+b2 <- ggplot(df, aes(x=Number.of.Policies, y=Marital.Status)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Policies and MartialStatus")
+b3 <- ggplot(df, aes(x=Number.of.Policies, y=EmploymentStatus)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Policies and Employed")
+b4 <- ggplot(df, aes(x=Number.of.Policies, y=Location.Code)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Policies and Residence place")
+grid.arrange(b1,b2,b3,b4,ncol=2)
+```
+
+The above 4 plots suggest that there is not much difference when it comes to Number of policies for features like Gender,Marital status , Employement status and Location code.
+
+<br>
+
+
+<br>
+
+<font size="5" ><div align="center">Visualization of CLV by each categories.</font></div>
+
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE}
+
+b7 <- ggplot(df, aes(x=Customer.Lifetime.Value, y=Gender)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Visualization of CLV wrt Gender ")
+b8 <- ggplot(df, aes(x=Customer.Lifetime.Value, y=Marital.Status)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Visualization of CLV wrt MartialStatus")
+b9 <- ggplot(df, aes(x=Customer.Lifetime.Value, y=EmploymentStatus)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Visualization of CLV wrt Employed")
+b10 <- ggplot(df, aes(x=Customer.Lifetime.Value, y=Location.Code)) + 
+  geom_boxplot(fill='#A4A4A4', color="darkblue") +
+  theme_minimal() +
+  labs(title = "Visualization of CLV wrt Residence place")
+grid.arrange(b7,b8,b9,b10,ncol=2)
+```
+
+The above 4 plots suggest that there is not much difference when it comes to CLV for features like Gender,Marital status , Employment status and Location code.
+
+<br>
+
+
+<br>
+
+<font size="5" ><div align="center">CLV Distribution by Gender,EmploymentStatus,Martial,Location</font></div>
+
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE}
+library(plotly)
+df1<-data.frame(df)
+
+agg_arr_sum <- sum(df1$Customer.Lifetime.Value)
+agg_arr <- df1$Customer.Lifetime.Value
+df1$Customer.Lifetime.Value[0] <- 100*agg_arr[0]/agg_arr_sum
+df1$Customer.Lifetime.Value[1] <- 100*agg_arr[1]/agg_arr_sum
+df1$Customer.Lifetime.Value[2] <- 100*agg_arr[2]/agg_arr_sum
+df1$Customer.Lifetime.Value[3] <- 100*agg_arr[3]/agg_arr_sum
+df1$Customer.Lifetime.Value[4] <- 100*agg_arr[4]/agg_arr_sum
+
+
+p1 <- plot_ly(data = df1,
+        x = ~factor(Gender),
+        y = ~Customer.Lifetime.Value,
+        color = ~as.factor(Gender),
+        type = "bar"
+) %>% 
+  layout(
+         xaxis = list(title = ""),
+         yaxis = list(title = "")
+  )
+
+
+p2 <- plot_ly(data = df1,
+        x = ~factor(EmploymentStatus),
+        y = ~Customer.Lifetime.Value,
+        color = ~as.factor(EmploymentStatus),
+        type = "bar"
+) %>% 
+  layout(
+         xaxis = list(title = ""),
+         yaxis = list(title = "")
+  )
+
+p3 <- plot_ly(data = df1,
+        x = ~factor(Marital.Status),
+        y = ~Customer.Lifetime.Value,
+        color = ~as.factor(Marital.Status),
+        type = "bar"
+) %>%             
+  layout(
+         xaxis = list(title = ""),
+         yaxis = list(title = "")
+  )
+
+p4 <- plot_ly(data = df1,
+        x = ~factor(Location.Code),
+        y = ~Customer.Lifetime.Value,
+        color = ~as.factor(Location.Code),
+        type = "bar"
+) %>% 
+  layout(title = "CLV Distribution by Gender,EmploymentStatus,Martial,Location",
+         xaxis = list(title = ""),
+         yaxis = list(title = "")
+  )
+subplot(p1,p2,p3,p4,nrows=2)
+```
+
+This plot shows the comparison of CLV in terms of Gender,Employment status,Marital Status and Residential Area. 
+
+<br>
+
+<br> 
+<font size="5" ><div align="center">Offer's on Renew Vehicle insurance based on Gender.</font></div>
+
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+new_offer <- df %>%
+              group_by(Gender, Renew.Offer.Type)%>%
+              summarise(n=n())
+
+plot <- ggplot(new_offer, aes(x = Renew.Offer.Type, y = n))+
+  labs(x = NULL, y = NULL, fill = NULL, title = "Offering Renew Offer Type") +
+  geom_bar(
+    aes(fill = Renew.Offer.Type), stat = "identity", color = "white",
+    position = position_dodge(0.9)
+    )+
+  theme_classic() +
+  facet_wrap(~Gender) 
+fig9 <- ggplotly(plot)
+fig9
+```
+<br>
+
+Based on bar plot above it can be new strategy for the company, How to offer the Renew Vehicle insurance based on Gender. Nevertheless, more or less nothing different between Female and Male when they decide to renew their insurance. The difference would be in Offer type 4, it shows that Male is more interested to renew their vehicle insurance in new offer type 4 than female.
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+hist(df$Monthly.Premium.Auto, breaks = (max(df$Monthly.Premium.Auto) - min(df$Monthly.Premium.Auto))/1,
+     freq = FALSE, main = "Monthly Premium Histogram", xlab = "Monthly Premium", border = "black",col="red")
+```
+<br>
+
+
+Mean of MPA(Monthly Premium Auto) is Mean of MPA is 93.21929 and the Median is 84.00
+The Variance in MPA is 1183.908 and the Standard Deviation is 34.40797
+There is a Positive Correlation of 39.62 % of MPA with CLV
+Kurtosis is 6.187546. Since kurtosis > 3, means distribution has thicker tails than normal
+MPA is positive Skewed
+
+
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+plot(x=df$Monthly.Premium.Auto, y=df$Customer.Lifetime.Value, col="red", cex=1, xlab="MonthlyPremiumAuto", ylab="CustomerLifetimeValue",
+       main="MPA VS CLV",)
+```
+<br>
+
+The scatter plot shows that With increase of MPA , CLV also increases.
+<br>
+
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+
+
+#cor(df$Months.Since.Last.Claim,df$Customer.Lifetime.Value)
+plot(x=df$Months.Since.Last.Claim, y=df$Customer.Lifetime.Value, col="red", cex=1, xlab="MonthsSinceLastClaim", ylab="CustomerLifetimeValue",main="Scatterplot of MonthsSinceLastClaim vs CLV")
+
+```
+
+<br>
+The positive correlation values close to zero show that that there is no strong relationship MonthsSinceLastClaim with CLV.
+<br>
+
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+aggData <- aggregate(x = df$Customer.Lifetime.Value, by=list(Policy.Type= df$Policy.Type), FUN = sum)
+
+hp<-ggplot(data = aggData, aes(x = Policy.Type, y = prop.table(stat(aggData$x)), fill = Policy.Type, label = scales::percent(prop.table(stat(aggData$x))))) +
+  geom_bar(stat="identity", position = "dodge") + 
+  geom_text(stat = 'identity', position = position_dodge(.9),  vjust = -0.5, size = 3) + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(x = 'PolicyType', y = 'CLV in Percentage') + 
+  ggtitle("Measuring CLV in terms of Policy type")
+hp + scale_fill_manual(values=c("mediumblue","purple3","magenta3"))
+```
+
+<br>
+Customers who have the personal policy type seem to be more valuable to the company when compared to Corporate and special type.
+<br>
+
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+aggData <- aggregate(x = df$Customer.Lifetime.Value, by=list(Policy= df$Policy), FUN = sum)
+
+hp<-ggplot(data = aggData, aes(x = Policy, y = prop.table(stat(aggData$x)), fill = Policy, label = scales::percent(prop.table(stat(aggData$x))))) +
+  geom_bar(stat="identity", position = "dodge")+ 
+  geom_text(stat = 'identity', position = position_dodge(.9),  vjust = -0.5, size = 3) + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(x = 'Policy', y = 'CLV in Percentage') + 
+  ggtitle("Measuring CLV in terms of Policy")
+hp + scale_fill_manual(values=c("mediumblue","purple3","magenta3","magenta2","maroon","red","red2","red3","red4"))
+```
+
+<br>
+We had already established that customers with personal policy type were more valuable. Digging deeper, we see that personal L3 customers are highly valuable to the company.
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+aggData <- aggregate(x = df$Customer.Lifetime.Value, by=list(Number.of.Policies	 = df$Number.of.Policies	), FUN = sum)
+hp<-ggplot(data = aggData, aes(x = Number.of.Policies, y = prop.table(stat(aggData$x)), fill =Number.of.Policies , label = scales::percent(prop.table(stat(aggData$x))))) +
+  geom_bar(stat="identity", position = "dodge") + 
+  geom_text(stat = 'identity', position = position_dodge(.9),  vjust = -0.5, size = 3) + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(x = 'Number of Policies', y = 'CLV in Percentage') + 
+  ggtitle("Measuring CLV in terms of Number of Policies") 
+hp+scale_fill_gradient(low="blue", high="red")
+
+
+plotdata <- df %>%
+    group_by(Number.of.Policies) %>%
+    summarize(mean_clv = mean(Customer.Lifetime.Value))
+
+ggplot(plotdata, 
+       aes(x = Number.of.Policies, 
+           y = mean_clv)) +
+    geom_bar(stat = "identity",fill="blue",col="black") + 
+  ggtitle("Mean CLV in terms of Number of Policies")
+```
+
+According to above two plot, customers with 2 Number of policies have higher CLV than that of others. It also suggests that the policy they opted for the first time was satisfactory hence they applied for the second one too. Customers who have more than 3 policies show a similar pattern in their CLV values. This may suggest that those customers having more than three policies may not significant in our model. This is visible in the second plot. While modelling a possible approach can be binning the Number.of.Policies variable. For eg : those with policies more than 3 can be combined into a single group.       
+
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+aggData <- aggregate(x = df$Customer.Lifetime.Value, by=list(Number.of.Open.Complaints	 = df$Number.of.Open.Complaints	), FUN = sum)
+hp<-ggplot(data = aggData, aes(x = Number.of.Open.Complaints, y = prop.table(stat(aggData$x)), fill =Number.of.Open.Complaints , label = scales::percent(prop.table(stat(aggData$x))))) +
+  geom_bar(stat="identity", position = "dodge") + 
+  geom_text(stat = 'identity', position = position_dodge(.9),  vjust = -0.5, size = 3) + 
+  scale_y_continuous(labels = scales::percent) + 
+  labs(x = 'Number of Open Complaints', y = 'CLV in Percentage') + 
+  ggtitle("Measuring CLV in terms of Number of Open Complaints")
+hp+scale_fill_gradient(low="red", high="blue")
+
+plotdata <- df %>%
+    group_by(Number.of.Open.Complaints) %>%
+    summarize(mean_clv = mean(Customer.Lifetime.Value))
+
+ggplot(plotdata, 
+       aes(x = Number.of.Open.Complaints, 
+           y = mean_clv)) +
+    geom_bar(stat = "identity",fill="blue",col="black")+
+    ggtitle("Mean CLV in terms of Number of Open Complaints")
+
+```
+
+
+Most of the customers have no complaints with the service provided. The mean value of CLV for customers with number of complaints below 3 shows similar pattern and hence those customers with more number of complaints who also have relatively less mean CLV should be taken care for better profit for the organization. A similar approach of binning can be applied here also as that suggested for the variable Number.of.Policies.
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+CLV_PolicyType <- ggplot(df, aes(x=Policy.Type, y=Customer.Lifetime.Value, fill = Policy ))+
+        geom_col() + xlab("Policy Type") + ylab("Customer Lifetime Value") +
+        ggtitle("Customer Lifetime Value by Policy Type and Policy") 
+CLV_PolicyType+ scale_fill_manual(values=c("mediumblue","purple3","magenta3","magenta2","maroon","red","red2","red3","red4"))
+```
+
+This bar plot Combines policy type and policy for Visualizing purposes. The personal policy type L3 has higher density among others. 
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+# Create tibble with number of species in our df
+dfvehc <-df %>% count(df$Vehicle.Class)
+
+# Pick colors for pie chart
+color <- RColorBrewer::brewer.pal(3, 'Accent') # Palette & number of colors to grab
+
+# Create pie chart
+plot_ly(df = df, # Set df
+        labels = ~df$Vehicle.Class, # Specify variable to divide pie chart by
+        marker = list(colors = color), # Set color
+        type = 'pie') %>%  # Make pie chart
+  layout(title = 'Pie chart of Vehicle Class', # Set title
+         paper_bgcolor='#F5F5F5') # Background color
+```
+
+This pie chart shows the proportion of Vehicle Class. We see that this data set has 50% of customers with "four door cars". Which may also suggest that there is a higher number of middle class customers. 
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+# Create tibble with number of species in our df
+dfvehs <-df %>% count(Vehicle.Size)
+
+# Pick colors for pie chart
+color <- RColorBrewer::brewer.pal(3, 'Accent') # Palette & number of colors to grab
+
+# Create pie chart
+plot_ly(df = df, # Set df
+        labels = ~df$Vehicle.Size, # Specify variable to divide pie chart by
+        marker = list(colors = color), # Set color
+        type = 'pie') %>%  # Make pie chart
+  layout(title = 'Pie chart of Vehicle Size', # Set title
+         paper_bgcolor='#F5F5F5') # Background color 
+
+```
+
+This pie chart shows the proportion of Vehicle size. We see that this data set has 70.3% of customers with "Medium Size", which could support our previous claim. 
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+# Create histogram
+hist <- ggplot(df = df, mapping = aes(x = df$Customer.Lifetime.Value, color =df$Vehicle.Class , fill = df$Vehicle.Class)) + 
+       geom_histogram(position = 'dodge') + 
+       scale_fill_brewer(palette = 'Accent') + 
+       scale_color_brewer(palette = 'Accent') + 
+       theme_classic() + 
+       theme(plot.background = element_rect(fill = "grey97")) + 
+       labs(title = 'Histogram of Customer Lifetime Value by Vehicle Class', x = 'Customer Lifetime Value', y = 'Count') 
+
+# Make graph interactive
+ ggplotly(hist)
+```
+
+
+<br>
+
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+# Create histogram
+hist1 <- ggplot(df = df, mapping = aes(x =df$Customer.Lifetime.Value , color =df$Vehicle.Size , fill = df$Vehicle.Size)) + 
+       geom_histogram(position = 'dodge') + 
+       scale_fill_brewer(palette = 'Accent') + 
+       scale_color_brewer(palette = 'Accent') + 
+       theme_classic() + 
+       theme(plot.background = element_rect(fill = "grey97")) + 
+       labs(title = 'Histogram of Customer Lifetime Value by Vehicle Size', x = 'Customer Lifetime Value', y = 'Count') 
+
+# Make graph interactive
+ggplotly(hist1)
+```
+
+
+The above two plots show the distribution of CLV in terms of Vehicle size and Vehicle class.The customers who own luxury cars have relatively higher CLV when compared to others, which is obvious. But we have more number of regular middle-class customers.
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+# Create ggplot
+poltype <- ggplot(
+       # (1) set df; (2) specify x & y variables; (3) set what variable to separate by color. 
+       df = df, mapping = aes(x=df$Total.Claim.Amount,y = df$Customer.Lifetime.Value, color =df$Policy )) +
+       geom_point() +  # Specifies that we want a scatter plot. 
+       geom_smooth() + # Add standard error bar line.
+       scale_color_brewer(palette = 'Accent') +  # Choose color for Species levels.
+       theme_classic() + # Set theme.
+       theme(plot.background = element_rect(fill = "grey97")) + # Background color.
+       labs(title = ' Total.Claim.Amount by Customer.Lifetime.Value', 
+            x = 'Total Claim Amount', y = 'Customer Lifetime Value')  # Title & axis names. 
+
+# Make plot interactive
+ggplotly(poltype)  
+
+```
+
+
+This plot shows that CLV increases with the increase in total claim amount for different policies. But there is not prefect linear relationship. 
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+ggplot(df, aes(x=Customer.Lifetime.Value))+
+  geom_density(aes(fill=Policy),alpha=0.7)+
+labs(x="Customer Lifetime Value",
+         y="Count", 
+       title="Distribution of CLV for different Policies")+  
+theme_bw()+
+theme(plot.title = element_text(size=22)
+      ,axis.text.x= element_text(size=15),
+       axis.text.y= element_text(size=15),
+        axis.title=element_text(size=18))
+```
+
+
+<br>
+
+<br>
+```{r ,warning=FALSE, echo=FALSE, message=FALSE}
+ggplot(df, aes(x=Customer.Lifetime.Value)) + 
+geom_histogram(binwidth=50,aes(fill=Sales.Channel))+
+facet_grid(Sales.Channel ~ .)+
+labs(x="Customer.Lifetime.Value",
+         y="Count", 
+       title="Distribution of CLV for different Sales channel ")+  
+theme_bw()+
+theme(plot.title = element_text(size=22)
+      ,axis.text.x= element_text(size=15),
+       axis.text.y= element_text(size=15),
+        axis.title=element_text(size=18))
+
+```
+
+
+This plot shows that the company must invest in agent and branches as their primary source of sales than Call center and web. The marketing through call centers and Web should be improved which can lead to more profit to the company. 
+
+***
+***
+
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center">Base model with all the variables.</div></font>
+
+```{r include=FALSE}
+lbl = LabelEncoder$new()
+new_df=data.frame(df)
+new_df$Gender <- lbl$fit_transform(new_df$Gender)
+new_df$Response  <- lbl$fit_transform(new_df$Response)
+new_df$Coverage <- lbl$fit_transform(new_df$Coverage)
+new_df$EmploymentStatus  <- lbl$fit_transform(new_df$EmploymentStatus)
+new_df$Location.Code  <- lbl$fit_transform(new_df$Location.Code)
+new_df$Renew.Offer.Type <- lbl$fit_transform(new_df$Renew.Offer.Type)
+new_df$Marital.Status  <- lbl$fit_transform(new_df$Marital.Status)
+new_df$Policy.Type    <- lbl$fit_transform(new_df$Policy.Type)
+new_df$Education    <- lbl$fit_transform(new_df$Education)
+new_df$Policy    <- lbl$fit_transform(new_df$Policy)
+new_df$Vehicle.Size     <- lbl$fit_transform(new_df$Vehicle.Size)
+new_df$Vehicle.Class     <- lbl$fit_transform(new_df$Vehicle.Class)
+new_df$Sales.Channel     <- lbl$fit_transform(new_df$Sales.Channel)
+new_df$Sate <- lbl$fit_transform(new_df$State)
+new_df= subset(new_df, select = -c(Customer,Effective.To.Date) )
+dat_transformed<-data.frame(new_df)
+```
+
+
+```{r include=FALSE}
+
+############################# function to check the performance of the model ###########
+
+performance<-function(train_x,predictions,actual){
+    n=length(actual)
+    absolute=abs(actual-predictions)
+    MAE=sum(absolute)/n
+    
+    print(paste("MAE :",MAE))
+    
+    square_value=(actual-predictions)**2
+    MSE=sum(square_value)/n
+    RMSE=sqrt(MSE)
+    
+    print(paste("RMSE :",RMSE))
+    print(paste("MSE :",MSE))
+    
+    mean_value=mean(actual)
+    differ=(actual-mean_value)**2
+    num=sum(square_value)
+    dinom=sum(differ)
+    R2=1-(num/dinom)
+    
+    print(paste("R2 :",R2))
+    
+    k=ncol(train_x)-1
+    num1=(1-R2)*(n-1)
+    dinom1=n-k-1
+    adj_R2=1-(num1/dinom1)
+    
+    print(paste("Adjusted R2 :" ,adj_R2))
+    
+}
+
+```
+
+```{r include=FALSE}
+
+################################# Standarization
+
+new_df$Total.Claim.Amount<-transform(new_df$Total.Claim.Amount, method = "zscore")
+new_df$Income<-transform(new_df$Income, method = "zscore")
+new_df$Monthly.Premium.Auto<-transform(new_df$Monthly.Premium.Auto, method = "zscore")
+new_df$Months.Since.Policy.Inception<-transform(new_df$Months.Since.Policy.Inception, method = "zscore")
+new_df$Months.Since.Last.Claim<-transform(new_df$Months.Since.Last.Claim, method = "zscore")
+```
+<br>
+
+```{r include=FALSE}
+set.seed(123)
+split = sample.split(new_df$Customer.Lifetime.Value, SplitRatio = 0.8)
+training_set1 = subset(new_df, split == TRUE)
+test_set1 = subset(new_df, split == FALSE)
+
+regressor1 = lm(formula = Customer.Lifetime.Value ~.,data = training_set1)
+
+prediction1 =  regressor1%>% predict(test_set1)
+pred1=regressor1%>%predict(training_set1)
+```
+
+
+
+<font size="3" color="blue">Train Result</font>
+```{r echo=FALSE}
+
+performance(training_set1,pred1,training_set1$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test Result</font>
+```{r echo=FALSE}
+performance(test_set1,prediction1,test_set1$Customer.Lifetime.Value)
+```
+
+
+***
+***
+
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center">Kruskal - Wallis test on categorical variables.</div></font>
+
+
+<font size="4" >he Kruskal–Wallis test is a nonparametric method and hence does not assume a normal distribution of the residuals, unlike the analogous one-way analysis of variance.The test can be implemented in R using the kruskal.test(x,g) function. The x parameter is a continuous (interval/ratio) variable. The g parameter is the categorical variable representing different groups to which the continuous values belong.The test does not identify where this stochastic dominance occurs or for how many pairs of groups stochastic dominance obtains. Even if we use ANOVA we get similar results.
+
+The null hypothesis with a Kruskal-Wallace test is that all the different groups represented by the samples are very similar based on the median value.
+
+Here let us see how the test works with categorical variables with two examples.
+
+```{r include=FALSE}
+df1 = subset(df, select = -c(Customer,Effective.To.Date) )
+cat_var=sapply(df1,is.character)
+data_matrix <- data.matrix(df1[cat_var])
+colnames(data_matrix)
+```
+<br>
+
+<br>
+<font size="3" color="blue">State</font>
+
+```{r echo=FALSE}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$State))
+
+aggregate(df$Customer.Lifetime.Value ~ df$State, data = data.frame(df$Customer.Lifetime.Value,df$State), FUN=mean, na.rm=T)
+```
+There is 28% chance that the means are same.Therefore, we fail to reject the null hypothesis. There is no significant difference in CLV among the customers from different States.Thus State variable can be avoided in our model. We can also infer that there is no discernible difference in the mean values of CLV for each State.
+
+
+<br>
+
+<br>
+<font size="3" color="blue">Coverage</font>
+
+```{r echo=FALSE}
+ kruskal.test(x =df$Customer.Lifetime.Value, g = as.factor(df$Coverage))
+
+aggregate(df$Customer.Lifetime.Value ~ df$Coverage, data = data.frame(df$Customer.Lifetime.Value,df$Coverage), FUN=mean, na.rm=T)
+```
+The p value here is < 0.05.Therefore, we reject the null hypothesis. There is significant difference in CLV among the customers with different policy coverages.Thus Coverage variable may add value to our model. By observing the mean of CLV for different policy coverages, it can be inferred that Extended and Premium policy customers are an asset to the organization. 
+
+<br>
+
+<br>
+<font size="4" color="black">Therefore based on Kruskal Wallace test, the categorical variables that would help in predicting the CLV are:</font>
+
+* Vehicle.Size
+* Vehicle.Class
+* Renew.Offer.Type
+* Marital.Status
+* Coverage
+* Education
+* EmploymentStatus
+
+***
+***
+
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center">Feature Engineering and Feature Selection.</div></font>
+
+<font size="3" color="blue">Feature Engineering.</font>
+
+We have implemented different models with different transformations of the variables for predicting the Customer Lifetime Value.
+The transformations that have been attempted with numerical variables includes :
+
+* Log and sqrt transformations on the continous independent variables.
+* Log and sqrt transformations on the dependent variable.
+* Binning of the continous variables based on their distribution.
+* Binning of the variables : Number.of.Open.Complaints and Number.of.Policies as mentioned in the EDA.
+* Label encoding the categorical features. R provides us with ‘superml‘ package that contains a set of functions to apply Label Encoder to our data.
+
+<font size="3" color="blue">Feature selection.</font>
+
+**Relative Importance is a technique that is specific to linear regression models.**
+
+Relative importance can be used to assess which variables contributed how much in explaining the linear model’s R-squared value. So, if you sum up the produced importances, it will add up to the model’s R- squared value.
+In essence, it is not directly a feature selection method, because you have already provided the features that go in the model. But after building the model, the relaimpo package can provide a sense of how important each feature is in contributing to the R- squared, or in other words, in ‘explaining the Y variable’.It is implemented in the relaimpo package. Basically, you build a linear regression model and pass that as the main argument to calc.relimp(). The relaimpo has multiple options to compute the relative importance, but the recommended method is to use type='lmg', and we have used the same for feature selection.
+
+**Step wise Forward and Backward Selection.**
+
+It searches for the best possible regression model by iteratively selecting and dropping variables to arrive at a model with the lowest possible AIC.
+It can be implemented using the step() function and you need to provide it with a lower model, which is the base model from which it won’t remove any features and an upper model, which is a full model that has all possible features you want to have.
+
+
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center">Modelling.</div></font>
+
+<font size="4" color="blue"><div align="center">Lasso Regression.</div></font>
+
+Here we have used all the features available.
+
+```{r include=FALSE}
+
+x = model.matrix(Customer.Lifetime.Value~.,data=training_set1)
+x_test = model.matrix(Customer.Lifetime.Value~.,data=test_set1)
+y_train = training_set1$Customer.Lifetime.Value
+y_test = test_set1$Customer.Lifetime.Value
+```
+
+```{r include=FALSE}
+lambdas <- 10^seq(2, -3, by = -.1)
+
+# Setting alpha = 1 implements lasso regression
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 6)
+
+# Best 
+lambda_best <- lasso_reg$lambda.min 
+lambda_best
+
+lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, standardize = TRUE)
+
+pred2 <- predict(lasso_model, s = lambda_best, newx = x)
+
+prediction2 <- predict(lasso_model, s = lambda_best, newx = x_test)
+```
+
+
+<font size="3" color="blue">Train Result</font>
+```{r echo=FALSE}
+
+performance(training_set1,pred1,training_set1$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test Result</font>
+```{r echo=FALSE}
+performance(test_set1,prediction1,test_set1$Customer.Lifetime.Value)
+```
+
+<br>
+
+<br>
+<font size="4" color="blue"><div align="center">Stepwise Regression.</div></font>
+
+```{r include=FALSE}
+# Fit the full model 
+full.model <- lm(Customer.Lifetime.Value ~., data = training_set1)
+# Stepwise regression model
+step.model <- stepAIC(full.model, direction = "both", 
+                      trace = FALSE)
+
+pred2 <- step.model%>% predict(training_set1)
+
+prediction2 <- step.model%>% predict(test_set1)
+
+```
+
+
+
+<font size="3" color="blue">Train Result</font>
+```{r echo=FALSE}
+
+performance(training_set1,pred2,training_set1$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test Result</font>
+```{r echo=FALSE}
+performance(test_set1,prediction2,test_set1$Customer.Lifetime.Value)
+```
+
+
+<br>
+
+<br>
+<font size="4" color="blue"><div align="center">Polynomial Regression on selected Variables.</div></font>
+
+Based on the EDA and feature selection methods the variables used in building the polynomial regression model are :
+Income , Monthly.Premium.Auto , poly(Number.of.Policies,5), Coverage, EmploymentStatus, Renew.Offer.Type, Vehicle.Size, Vehicle.Class, Marital.Status and  Education.
+
+```{r include=FALSE}
+
+pm <- lm(Customer.Lifetime.Value ~ Income + Monthly.Premium.Auto +poly(Number.of.Policies,5,raw =T)+Coverage+EmploymentStatus+Renew.Offer.Type+Vehicle.Size+Vehicle.Class+Marital.Status+Education,
+          data = training_set1)
+
+pred3 <- pm%>% predict(training_set1)
+
+prediction3 <- pm%>% predict(test_set1)
+```
+
+
+<font size="3" color="blue">Train Result</font>
+```{r echo=FALSE}
+
+performance(training_set1,pred3,training_set1$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test Result</font>
+```{r echo=FALSE}
+performance(test_set1,prediction3,test_set1$Customer.Lifetime.Value)
+```
+
+
+<br>
+
+<br>
+<font size="4" color="blue"><div align="center">XGBoost Regression.</div></font>
+
+The variables used in XGBoost model are :
+Vehicle.Class, Coverage, Renew.Offer.Type, EmploymentStatus, Policy.Type, Monthly.Premium.Auto, Number.of.Open.Complaints, Total.Claim.Amount, Number.of.Policies, Income and Education.
+
+```{r include=FALSE}
+set.seed(987654321)
+train_set <- createDataPartition(df$Customer.Lifetime.Value, p=0.8, list = FALSE)
+train <- df[train_set,]
+test <- df[-train_set,]
+
+traindf3 <- subset(train, select = c(Customer.Lifetime.Value,Vehicle.Class,Coverage,Renew.Offer.Type,EmploymentStatus,Policy.Type,Monthly.Premium.Auto,Number.of.Open.Complaints,Total.Claim.Amount,Number.of.Policies,Income,Education))
+
+testdf3 <- subset(test, select = c(Customer.Lifetime.Value,Vehicle.Class,Coverage,Renew.Offer.Type,EmploymentStatus,Policy.Type,Monthly.Premium.Auto,Number.of.Open.Complaints,Total.Claim.Amount,Number.of.Policies,Income,Education))
+
+```
+
+```{r include=FALSE}
+
+training <- sparse.model.matrix(Customer.Lifetime.Value ~ ., data = traindf3)  
+train_label <- traindf3$Customer.Lifetime.Value
+train_matrix <- xgb.DMatrix(data = as.matrix(training), label = train_label)
+testing <- sparse.model.matrix(Customer.Lifetime.Value~., data = testdf3)
+test_label <- testdf3$Customer.Lifetime.Value
+test_matrix <- xgb.DMatrix(data = as.matrix(testing), label = test_label)
+nc <- length(unique(train_label))
+xgb_params <- list("objective" = "multi:softprob",
+                   "eval_metric" = "mlogloss",
+                   "num_class" = nc)
+watchlist <- list(train = train_matrix, test = test_matrix)
+
+xgmodel <- xgb.train(data = train_matrix, watchlist = watchlist, 
+                     nround = 100, 
+                     nthread = 4, 
+                     eta = 0.1, 
+                     max.depth = 6 ,
+                     objective = "reg:linear", 
+                     eval_metric = "rmse" , 
+                     verbose = 1) 
+pred_Xgmodel <- predict(xgmodel, newdata = test_matrix)
+pred_xg_train<-predict(xgmodel,train_matrix)
+
+```
+
+<font size="3" color="blue">Train Result</font>
+```{r echo=FALSE}
+
+performance(traindf3,pred_xg_train,traindf3$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test  Result</font>
+
+```{r echo=FALSE}
+performance(testdf3,pred_Xgmodel,testdf3$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Feature Importance</font>
+``````{r echo=FALSE }
+imp_fearture <- xgb.importance(colnames(train_matrix), model = xgmodel)
+print(imp_fearture)
+```
+
+```{r echo=FALSE}
+xgb.plot.importance(imp_fearture)
+```
+
+
+<br>
+
+<br>
+<font size="4" color="blue"><div align="center">Final Model.</div></font>
+
+The final model takes in the variables :
+
+Monthly.Premium.Auto, I(Coverage == "Premium" ), Total.Claim.Amount, Income, I(Number.of.Policies == 1), I(Number.of.Policies == 2), I(EmploymentStatus == "Employed"), I(Policy.Type == "Special Auto"), I(Number.of.Open.Complaints == 3), I(Number.of.Open.Complaints == 4), I(Number.of.Open.Complaints == 5), I( Vehicle.Class== "Sports Car").
+
+```{R include=FALSE}
+Reg_4 = lm(Customer.Lifetime.Value ~ Monthly.Premium.Auto  + I(Coverage == "Premium" ) + Total.Claim.Amount + Income                   +I(Number.of.Policies == 1)+I(Number.of.Policies == 2) + I(EmploymentStatus == "Employed") 
+           +I(Policy.Type == "Special Auto") + I(Number.of.Open.Complaints == 3)
+           +I(Number.of.Open.Complaints == 4) + I(Number.of.Open.Complaints == 5) + I( Vehicle.Class== "Sports Car") ,data = traindf3)
+
+pred_LM = predict(Reg_4,testdf3)
+pred_LMtrain<-predict(Reg_4,traindf3)
+```
+
+<font size="3" color="blue">Model Summary</font>
+```{r echo=FALSE}
+
+summary(Reg_4)
+
+```
+
+
+<font size="3" color="blue">Train Result</font>
+
+```{r echo=FALSE}
+performance(traindf3,pred_LMtrain,traindf3$Customer.Lifetime.Value)
+```
+
+<font size="3" color="blue">Test Result</font>
+
+```{r echo=FALSE}
+performance(testdf3,pred_LM,testdf3$Customer.Lifetime.Value)
+```
+
+<br>
+
+<br>
+<font size="3" color="blue">Repeated 10 fold Cross Validation.</font>
+
+```{r echo=FALSE}
+
+set.seed(123456)
+train.control <- trainControl(method = "repeatedcv",
+                              number = 10, repeats = 3)
+
+pm1_cv <- train(Customer.Lifetime.Value ~ Monthly.Premium.Auto  + I(Coverage == "Premium" ) + Total.Claim.Amount + Income                   +I(Number.of.Policies == 1)+I(Number.of.Policies == 2) + I(EmploymentStatus == "Employed") 
+           +I(Policy.Type == "Special Auto") + I(Number.of.Open.Complaints == 3)
+           +I(Number.of.Open.Complaints == 4) + I(Number.of.Open.Complaints == 5) + I( Vehicle.Class== "Sports Car") ,data = df,
+           method = "lm",trControl = train.control)
+
+print(pm1_cv)
+```
+
+<br>
+
+<br>
+Final Model Interpretation :-
+
+Null Hypothesis - None of the independed variables are significant for CLV.
+
+Alternate Hypothesis – At least some of the independent variables are significant and can effect the CLV.
+
+1) p-value of model is less than 0.05, so atleast one of the independent variables are significant.
+
+2) p-value of MonthlyPremiumAuto, NumberofOpenComplaints, NumberofPolicies (Buyer's == 2 and 1),Coverage("Premium"), and EmploymentStatus ("People who are Employed") are less than 0.05. So atlest one of them independed variables are significant and can effect the CLV.
+
+3) However R squared is 63.38% which means that 93.8% of the actual variance in CLV can be explained by our multiple linear regression model.
+
+4) Adjusted R squared is 0.6329 which is less than R squared and is the best among all the models we had. We have seen that eventhough XGBoost gives higher adjusted R square, its highly overfitting.
+
+5) Residual standard error is 4193 which is average, so it means the actual CLV will deviate from the true regression line by approximately 4193 on an average. The smaller the standard error, the less the spread and the more likely it is that any sample mean is close to the population mean. A small standard error is thus a Good Thing.F-statistic: The lower the F-statistic, the closer to a non-significant model. So F-statistic in Final Model is high  means it is significant model.
+
+6) The results of cross validation also suggests that our final model can prove to be good with the unseen data points.
+
+
+***
+***
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center"> Model Valuation and Checking Assumptions of Linear Regression. </div></font>
+
+
+```{r include=FALSE}
+residualsCLV <- residuals(Reg_4)
+print(residualsCLV[1:10])
+```
+
+
+```{r include=FALSE}
+predicatedTestData=predict(Reg_4,testdf3)
+print(predicatedTestData[1:10])
+print(traindf3$Customer.Lifetime.Value[1:10])
+```
+
+
+```{r include=FALSE}
+InsuranceTrainData <- cbind(traindf3,pred_LMtrain,residualsCLV)
+head(InsuranceTrainData)
+dim(InsuranceTrainData)
+```
+
+
+```{r include=FALSE}
+ErrorRate <- abs(((InsuranceTrainData$Customer.Lifetime.Value - InsuranceTrainData$pred_LMtrain)/(InsuranceTrainData$Customer.Lifetime.Value))*100)
+print(ErrorRate[1:10])
+```
+
+
+```{r include=FALSE}
+InsuranceTrainData <- cbind(InsuranceTrainData, ErrorRate)
+head(InsuranceTrainData)
+```
+
+Average error rate of model is 22.9093%, which is low and we can say that model is good.
+```{r echo=FALSE}
+mean(InsuranceTrainData$ErrorRate, na.rm = TRUE)
+
+```
+
+
+<br>
+
+<br>
+
+<font size="4" color="blue"><div align="center">Normality of Residuals.</div></font>
+```{r echo=FALSE}
+hist(ErrorRate, col = "blue")
+
+```
+
+```{r echo=FALSE}
+hist(residualsCLV,col = "pink")
+```
+
+<font size="4" color="#00e600">Shapiro Test.</font>
+
+
+<font size="4">
+Null Hypotheses - Errors are normally distributed.
+
+Alt Hypothese - Errors are not normally distributed.
+
+```{r echo=FALSE}
+shapiro.test(residualsCLV[0:5000])
+```
+
+p-value < 0.05, Null Hypotheses get rejected, and so the errors are not normally distributed.
+</font>
+
+
+<font size="4" color="#00e600">  Residuals vs Fitted Plot </font>
+
+
+```{r echo=FALSE}
+plot(Reg_4, which=1)
+```
+
+Here we can observe a recognizable pattern. This suggests either non-linearity or that other attributes have not been adequately captured.
+
+```{r echo=FALSE}
+plot(Reg_4, which=2)
+```
+
+The Q-Q plot plots the distribution of our residuals against the theoretical normal distribution. There is strong snaking or deviations from the diagonal line towards the right and hence we should consider our residuals non-normally distributed. 
+<br>
+
+<br>
+
+<font size="4" color="blue"><div align="center">Detecting multicollinearity.</div></font>
+
+
+```{r include=FALSE}
+InsuranceTrainData$Coverage <- lbl$fit_transform(InsuranceTrainData$Coverage)
+InsuranceTrainData$Vehicle.Class <- lbl$fit_transform(InsuranceTrainData$Vehicle.Class)
+InsuranceTrainData$Renew.Offer.Type <- lbl$fit_transform(InsuranceTrainData$Renew.Offer.Type)
+InsuranceTrainData$Policy.Type <- lbl$fit_transform(InsuranceTrainData$Policy.Type)
+InsuranceTrainData$Education <- lbl$fit_transform(InsuranceTrainData$Education)
+InsuranceTrainData$EmploymentStatus <- lbl$fit_transform(InsuranceTrainData$EmploymentStatus)
+```
+
+<font size="4" color="#00e600">Variance Inflation Factor.</font>
+
+```{r include=FALSE}
+cor(InsuranceTrainData) 
+```
+
+```{r echo=FALSE}
+car::vif(Reg_4)
+```
+
+```{r echo=FALSE}
+correlations <- cor(InsuranceTrainData)
+p <- corrplot(correlations, method="circle")
+```
+
+<font size="4"> Variance inflation factor (VIF) is a measure of the amount of multicollinearity in a set of multiple regression variables.If there is high correlation between two independed variables (high multicollinearity), then you will not be able to seperate out the impact of individual independed variable on depended variable.Instead of inspecting the correlation matrix, a better way to assess multi- collinearity is to compute the variance inflation factor (VIF). The smallest possible value for VIF is 1, which indicates the complete absence of collinearity. Typically in practice there is a small amount of collinearity among the predictors. As a rule of thumb, a VIF value that exceeds 5 or 10 indicates a problematic amount of collinearity.
+
+Due to multicolinearity we can't define the complete impact of only one independed variable on the depended variable.
+</font>
+
+<br>
+
+<br>
+<font size="4" color="blue"><div align="center">Detecting Homoscedasticity.</div></font>
+
+<br>
+
+
+<font size="4" color="#00e600">Breusch-Pagan test.</font>
+
+<font size="4">
+
+Null Hypothesis - Homoscedasticity is present in Residuals.
+
+Alternate hypothesis - Heteroskedasticity is present in residuals.</font>
+```{r echo=FALSE}
+bptest(Reg_4)
+plot(Reg_4,3)
+```
+
+<font size="4"> p-value < 0.05, so it rejects that errors are homoscedasticity. So errors terms are heteroscedastic ie, they doesn't have constant variance which is not good for model. The Scale - Location plot also suggests that there is heteroscedasticity in our residuals as it has a funnel shaped pattern and are not randomly distributed.</font>
+
+<br>
+
+<br>
+
+<font size="4" color="blue"><div align="center">Model - Plots.</div></font>
+
+
+```{r echo=FALSE}
+
+plot(Reg_4, which=4)
+plot(Reg_4, which=5)
+```
+
+These are the Cook’s Distance and residuals versus leverage plot. These plot helps us to find influential cases (i.e., subjects) if any.
+We can see that the data points 5717, 7284 and 8826 are influential cases against our regression line.The regression results can be altered if we exclude these cases.
+
+
+***
+***
+<br>
+
+<br>
+<font size="6" color="#700000"><div align="center">Suggestions for Additional data</div></font>
+
+
+* The data could provide more insights if it had variables like 'expenses caused to the company by the customer' , 'initial cost of acquiring a customer' , 'mode of contacting the customer' ' 'no:of purchases made by each customer' etc.
+* The data provided would be more efficient if the time period given was extended(more than 2 months). 
+* Churn would be another necessary feature which would help in predicting if a customer would leave the company. If yes, what would be the offers given to retain the customer. 
+
+* Credit based Insurance score would be efficient in providing information about the customer and how much of monetary value he can provide to the company. 
+
+ <br>
+ 
+ <br>
+
+
+<font size="6" color="#700000"><div align="center">Business Solutions.</div></font>
+
+
+We would like recommend the following business solutions according to our analysis above. 
+
+* Insurance company should target Married customers that have premium policy type, as their employment will be "employed". 
+* The company must give preference to "agent" based and "branch" based sales. 
+* The company should encourage the customers to take policy coverage with Extended and premium coverage and also try to retain such customers. As per our analysis web and  call center based marketing should be  strengthened.
+* Higher number of open complaints can decrease the value of CLV. 
+* Other modes of marketing can be implemented to increase the profit of the company. Call based marketing strategies show lesser customer involvement. 
+* The company must also target customers who are willing to invest on policy type "personal", more deeply the personal L3 policy customers have been more valuable to the company. 
+* The company must retain customers from Suburban and Urban areas. And also try to allure more customers from rural areas. 
+* They must also target customers who own Luxury SUVs or sports cars as these customers would be more valuable to the company. And they are also likely to take premium policies. 
+* Incentivizing long-term customer loyalty would be a good option to retain customers.
+
+
+<br>
+
+<br>
+
+<font size="6" color="#700000"><div align="center">References.</div></font>
+
+* [Xgboost](https://analyticsindiamag.com/complete-guide-to-xgboost-with-implementation-in-r/)
+* [Book](https://github.com/PacktPublishing/Hands-On-Data-Science-for-Marketing)
+* [Feature Selection](http://r-statistics.co/Variable-Selection-and-Importance-With-R.html)
+* [DataCamp](https://www.datacamp.com/community/tutorials/introduction-customer-segmentation-python)
+* [Modelling CLV](https://www.custora.com/blog/story/how-bayesian-probability-models-can-make-clv-predictions-12x-more-accurate)
+* [Kaggle](https://www.kaggle.com/pankajjsh06/ibm-watson-marketing-customer-value-data)
+* [Stepwise Modelling](http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/154-stepwise-regression-essentials-in-r/)
+* [Markdown](https://rmarkdown.rstudio.com/)
+* [Statistical Tests](https://michaelminn.net/tutorials/r-categorical/index.html)
+* [Customer Lifetime Value](https://en.wikipedia.org/wiki/Customer_lifetime_value)
+* [Lasso Regression](https://www.pluralsight.com/guides/linear-lasso-and-ridge-regression-with-r)
+
+***
+*** 
+<br> 
+
+<br>
+
+<font size="6" color="#700000"><div align="left">Team 1</div></font>
+
+Team Members: 
+
+1. Abraham G K (20BDA20)
+2. Josmi Agnes Jose(20BDA27)
+3. Sanjana Ramesh(20BDA34)
+4. Nidhi Teresa George(20BDA35)
+5. Rakshith Kumar K.N(20BDA47)
+
+***
