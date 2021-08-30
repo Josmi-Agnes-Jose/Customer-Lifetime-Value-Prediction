@@ -1,5 +1,5 @@
 # Customer-Lifetime-Value-Prediction
-The task is to understand the concept of Customer Lifetime Value and provide a data-driven solution through data methodologies.To understand customer behaviour and to find out the profitable customers and predict the lifetime valuation of a customer to facilitate target marketing. CLV is the total worth to a business of a customer over the whole period of their relationship. It’s an important metric as it costs less to keep existing customers than it does to acquire new ones, so increasing the value of your existing customers is a great way to drive growth.
+The task is to understand the concept of Customer Lifetime Value and provide a data-driven solution through data methodologies.To understand customer behaviour and to find out the profitable customers and predict the lifetime valuation of a customer to facilitate targeted marketing. CLV is the total worth to a business of a customer over the whole period of their relationship. It’s an important metric as it costs less to keep existing customers than it does to acquire new ones, so increasing the value of your existing customers is a great way to drive growth.
 
 We have used R programming for carrying out the project. The results are presented with the help of `R markdown`.
 
